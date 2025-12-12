@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { 
   Direction, 
   Coordinate, 
@@ -19,7 +19,7 @@ import GameBoard from './components/GameBoard';
 import Controls from './components/Controls';
 import CommentaryPanel from './components/CommentaryPanel';
 import { generateGameCommentary } from './services/geminiService';
-import { Trophy, Zap } from 'lucide-react';
+import { Trophy, Zap, Gauge } from 'lucide-react';
 
 const App: React.FC = () => {
   // --- State ---
@@ -70,6 +70,20 @@ const App: React.FC = () => {
       addMessage(comment, 'ai');
     }
   };
+
+  // --- Calculations ---
+  
+  const speedProgress = useMemo(() => {
+    const start = DIFFICULTY_CONFIG[difficulty].initialSpeed;
+    const min = MIN_SPEED;
+    
+    // Calculate percentage: 0% at start speed, 100% at min speed
+    const range = start - min;
+    const current = start - speed;
+    const percent = (current / range) * 100;
+    
+    return Math.min(100, Math.max(0, percent));
+  }, [speed, difficulty]);
 
   // --- Game Loop Logic ---
 
@@ -216,7 +230,7 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-[#050508] text-white flex flex-col md:flex-row items-center justify-center p-4 gap-8">
       
       {/* Left Column: Game Area */}
-      <div className="flex flex-col items-center gap-6 w-full md:w-auto">
+      <div className="flex flex-col items-center gap-4 w-full md:w-auto">
         
         {/* Header / Score */}
         <div className="w-full flex justify-between items-center px-4 py-2 bg-gray-900/50 rounded-lg border border-gray-800">
@@ -237,6 +251,27 @@ const App: React.FC = () => {
             </div>
             <span className="text-2xl font-mono font-bold text-white">{highScore}</span>
           </div>
+        </div>
+
+        {/* Speed Indicator */}
+        <div className="w-full flex items-center gap-3 px-2 py-1">
+             <div className="flex items-center gap-2 w-16">
+                <Gauge size={14} className={DIFFICULTY_CONFIG[difficulty].color} />
+                <span className={`text-xs font-mono font-bold ${DIFFICULTY_CONFIG[difficulty].color}`}>
+                  {DIFFICULTY_CONFIG[difficulty].label}
+                </span>
+             </div>
+             
+             <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden border border-gray-700/50">
+                <div 
+                  className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 shadow-[0_0_10px_currentColor]"
+                  style={{ width: `${Math.max(5, speedProgress)}%` }} // Min 5% so it's visible
+                />
+             </div>
+             
+             <div className="w-12 text-right text-[10px] text-gray-500 font-mono">
+                {Math.round(speedProgress)}% MAX
+             </div>
         </div>
 
         <GameBoard snake={snake} food={food} status={status} />
