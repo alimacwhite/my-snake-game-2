@@ -5,6 +5,12 @@ export enum Direction {
   RIGHT = 'RIGHT'
 }
 
+export enum Difficulty {
+  EASY = 'EASY',
+  MEDIUM = 'MEDIUM',
+  HARD = 'HARD'
+}
+
 export enum GameStatus {
   IDLE = 'IDLE',
   PLAYING = 'PLAYING',

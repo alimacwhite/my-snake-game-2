@@ -1,22 +1,57 @@
 import React from 'react';
-import { GameStatus, Direction } from '../types';
+import { GameStatus, Direction, Difficulty } from '../types';
 import { Play, RotateCcw, Pause, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
+import { DIFFICULTY_CONFIG } from '../constants';
 
 interface ControlsProps {
   status: GameStatus;
+  difficulty: Difficulty;
   onStart: () => void;
   onPause: () => void;
   onRestart: () => void;
   onDirectionChange: (dir: Direction) => void;
+  onDifficultyChange: (diff: Difficulty) => void;
 }
 
-const Controls: React.FC<ControlsProps> = ({ status, onStart, onPause, onRestart, onDirectionChange }) => {
+const Controls: React.FC<ControlsProps> = ({ 
+  status, 
+  difficulty,
+  onStart, 
+  onPause, 
+  onRestart, 
+  onDirectionChange,
+  onDifficultyChange
+}) => {
   
   const btnBase = "p-4 rounded-full bg-gray-800 border border-gray-600 active:bg-neon-blue active:border-neon-blue active:text-black transition-all duration-150 shadow-lg";
 
   return (
     <div className="flex flex-col items-center gap-6 w-full max-w-md">
       
+      {/* Difficulty Selector - Only visible when not playing */}
+      {(status === GameStatus.IDLE || status === GameStatus.GAME_OVER) && (
+        <div className="flex gap-2 p-1 bg-gray-900 rounded-lg border border-gray-800">
+          {(Object.keys(DIFFICULTY_CONFIG) as Difficulty[]).map((level) => {
+            const config = DIFFICULTY_CONFIG[level];
+            const isSelected = difficulty === level;
+            
+            return (
+              <button
+                key={level}
+                onClick={() => onDifficultyChange(level)}
+                className={`px-4 py-2 text-xs font-mono font-bold rounded transition-all duration-200 
+                  ${isSelected 
+                    ? `bg-gray-800 ${config.color} border ${config.borderColor} shadow-[0_0_10px_rgba(255,255,255,0.1)]` 
+                    : 'text-gray-500 hover:text-gray-300'
+                  }`}
+              >
+                {config.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Primary Actions */}
       <div className="flex gap-4">
         {status === GameStatus.IDLE || status === GameStatus.GAME_OVER ? (

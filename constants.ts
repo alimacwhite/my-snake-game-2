@@ -1,9 +1,13 @@
-import { Coordinate, Direction } from './types';
+import { Coordinate, Direction, Difficulty } from './types';
 
 export const BOARD_SIZE = 20; // 20x20 Grid
-export const INITIAL_SPEED = 150; // ms
-export const MIN_SPEED = 50; // Max speed (lower ms)
-export const SPEED_DECREMENT = 2; // Speed up by 2ms per food
+export const MIN_SPEED = 40; // Max speed (lower ms)
+
+export const DIFFICULTY_CONFIG = {
+  [Difficulty.EASY]: { label: 'EASY', initialSpeed: 200, speedDecrement: 2, color: 'text-green-400', borderColor: 'border-green-400' },
+  [Difficulty.MEDIUM]: { label: 'MEDIUM', initialSpeed: 140, speedDecrement: 4, color: 'text-yellow-400', borderColor: 'border-yellow-400' },
+  [Difficulty.HARD]: { label: 'HARD', initialSpeed: 90, speedDecrement: 6, color: 'text-red-500', borderColor: 'border-red-500' },
+};
 
 export const INITIAL_SNAKE: Coordinate[] = [
   { x: 10, y: 10 },

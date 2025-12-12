@@ -1,19 +1,18 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
-  GameState, 
   Direction, 
   Coordinate, 
   GameStatus, 
-  CommentaryMessage 
+  CommentaryMessage,
+  Difficulty
 } from './types';
 import { 
   BOARD_SIZE, 
   INITIAL_SNAKE, 
   INITIAL_DIRECTION, 
-  INITIAL_SPEED,
   MIN_SPEED,
-  SPEED_DECREMENT,
-  KEY_MAP
+  KEY_MAP,
+  DIFFICULTY_CONFIG
 } from './constants';
 import { useInterval } from './hooks/useInterval';
 import GameBoard from './components/GameBoard';
@@ -30,12 +29,14 @@ const App: React.FC = () => {
   const [status, setStatus] = useState<GameStatus>(GameStatus.IDLE);
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
-  const [speed, setSpeed] = useState(INITIAL_SPEED);
+  
+  // Difficulty State
+  const [difficulty, setDifficulty] = useState<Difficulty>(Difficulty.MEDIUM);
+  const [speed, setSpeed] = useState(DIFFICULTY_CONFIG[Difficulty.MEDIUM].initialSpeed);
   
   const [messages, setMessages] = useState<CommentaryMessage[]>([]);
   
-  // Refs to prevent closure staleness in event listeners if needed, 
-  // though we mostly rely on state for rendering.
+  // Refs
   const directionRef = useRef(INITIAL_DIRECTION);
 
   // --- Helpers ---
@@ -64,7 +65,6 @@ const App: React.FC = () => {
   }, []);
 
   const triggerAI = async (event: 'start' | 'eat' | 'die' | 'highscore', currentScore: number) => {
-    // Optimistic UI update or placeholder could go here
     const comment = await generateGameCommentary(currentScore, event, highScore);
     if (comment) {
       addMessage(comment, 'ai');
@@ -78,11 +78,14 @@ const App: React.FC = () => {
     setDirection(INITIAL_DIRECTION);
     directionRef.current = INITIAL_DIRECTION;
     setScore(0);
-    setSpeed(INITIAL_SPEED);
+    
+    // Set speed based on selected difficulty
+    setSpeed(DIFFICULTY_CONFIG[difficulty].initialSpeed);
+    
     setStatus(GameStatus.PLAYING);
     setFood(generateFood(INITIAL_SNAKE));
-    setMessages([]); // Clear chat on new game? Or keep history? Let's clear.
-    addMessage("System: Game Started", "system");
+    setMessages([]); 
+    addMessage(`System: Game Started (${difficulty} Mode)`, "system");
     triggerAI('start', 0);
   };
 
@@ -141,9 +144,12 @@ const App: React.FC = () => {
         const newScore = score + 10;
         setScore(newScore);
         setFood(generateFood(newSnake));
-        setSpeed(prev => Math.max(MIN_SPEED, prev - SPEED_DECREMENT));
         
-        // Random chance for AI comment on eat, or every 50 points
+        // Update Speed based on difficulty decrement
+        const decrement = DIFFICULTY_CONFIG[difficulty].speedDecrement;
+        setSpeed(prev => Math.max(MIN_SPEED, prev - decrement));
+        
+        // AI Comment
         if (newScore % 50 === 0 && newScore > 0) {
              triggerAI('eat', newScore);
         }
@@ -154,9 +160,7 @@ const App: React.FC = () => {
       return newSnake;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, food, score, generateFood, highScore]); 
-  // removed 'gameOver' and 'triggerAI' from deps to avoid circular logic in simple implementation
-  // relying on closure for functional updates mostly.
+  }, [status, food, score, generateFood, highScore, difficulty]); 
 
   // --- Effects ---
 
@@ -171,7 +175,6 @@ const App: React.FC = () => {
 
       const currentDir = directionRef.current;
       
-      // Prevent 180 degree turns
       const isOpposite = 
         (targetDir === Direction.UP && currentDir === Direction.DOWN) ||
         (targetDir === Direction.DOWN && currentDir === Direction.UP) ||
@@ -240,10 +243,12 @@ const App: React.FC = () => {
 
         <Controls 
           status={status}
+          difficulty={difficulty}
           onStart={startGame}
           onPause={pauseGame}
           onRestart={startGame}
           onDirectionChange={handleDirectionChange}
+          onDifficultyChange={setDifficulty}
         />
       </div>
 
