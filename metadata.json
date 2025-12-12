@@ -1,0 +1,5 @@
+{
+  "name": "Neon Snake AI",
+  "description": "A modern, retro-neon styled Snake game featuring real-time commentary powered by Google Gemini AI.",
+  "requestFramePermissions": []
+}
