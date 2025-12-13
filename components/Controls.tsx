@@ -13,6 +13,8 @@ interface ControlsProps {
   onDifficultyChange: (diff: Difficulty) => void;
 }
 
+const BUTTON_BASE_CLASS = "p-4 rounded-full bg-gray-800 border border-gray-600 active:bg-neon-blue active:border-neon-blue active:text-black transition-all duration-150 shadow-lg touch-manipulation";
+
 const Controls: React.FC<ControlsProps> = ({ 
   status, 
   difficulty,
@@ -23,8 +25,6 @@ const Controls: React.FC<ControlsProps> = ({
   onDifficultyChange
 }) => {
   
-  const btnBase = "p-4 rounded-full bg-gray-800 border border-gray-600 active:bg-neon-blue active:border-neon-blue active:text-black transition-all duration-150 shadow-lg";
-
   return (
     <div className="flex flex-col items-center gap-6 w-full max-w-md">
       
@@ -76,23 +76,23 @@ const Controls: React.FC<ControlsProps> = ({
       {/* D-Pad for Mobile */}
       <div className="grid grid-cols-3 gap-2 md:hidden">
         <div />
-        <button className={btnBase} onClick={() => onDirectionChange(Direction.UP)} aria-label="Up">
+        <button className={BUTTON_BASE_CLASS} onClick={() => onDirectionChange(Direction.UP)} aria-label="Up">
           <ArrowUp size={24} />
         </button>
         <div />
         
-        <button className={btnBase} onClick={() => onDirectionChange(Direction.LEFT)} aria-label="Left">
+        <button className={BUTTON_BASE_CLASS} onClick={() => onDirectionChange(Direction.LEFT)} aria-label="Left">
           <ArrowLeft size={24} />
         </button>
         <div className="w-12 h-12 rounded-full bg-gray-900/50 flex items-center justify-center">
           <div className="w-2 h-2 bg-gray-600 rounded-full" />
         </div>
-        <button className={btnBase} onClick={() => onDirectionChange(Direction.RIGHT)} aria-label="Right">
+        <button className={BUTTON_BASE_CLASS} onClick={() => onDirectionChange(Direction.RIGHT)} aria-label="Right">
           <ArrowRight size={24} />
         </button>
 
         <div />
-        <button className={btnBase} onClick={() => onDirectionChange(Direction.DOWN)} aria-label="Down">
+        <button className={BUTTON_BASE_CLASS} onClick={() => onDirectionChange(Direction.DOWN)} aria-label="Down">
           <ArrowDown size={24} />
         </button>
         <div />

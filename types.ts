@@ -18,6 +18,8 @@ export enum GameStatus {
   GAME_OVER = 'GAME_OVER'
 }
 
+export type GameEventType = 'start' | 'eat' | 'die' | 'highscore';
+
 export interface Coordinate {
   x: number;
   y: number;

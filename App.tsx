@@ -1,48 +1,18 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { 
-  Direction, 
-  Coordinate, 
-  GameStatus, 
-  CommentaryMessage,
-  Difficulty
-} from './types';
-import { 
-  BOARD_SIZE, 
-  INITIAL_SNAKE, 
-  INITIAL_DIRECTION, 
-  MIN_SPEED,
-  KEY_MAP,
-  DIFFICULTY_CONFIG
-} from './constants';
-import { useInterval } from './hooks/useInterval';
+import React, { useState, useCallback } from 'react';
+import { GameEventType, CommentaryMessage } from './types';
+import { DIFFICULTY_CONFIG } from './constants';
 import GameBoard from './components/GameBoard';
 import Controls from './components/Controls';
 import CommentaryPanel from './components/CommentaryPanel';
 import { generateGameCommentary } from './services/geminiService';
+import { useSnakeGame } from './hooks/useSnakeGame';
 import { Trophy, Zap, Gauge } from 'lucide-react';
 
 const App: React.FC = () => {
-  // --- State ---
-  const [snake, setSnake] = useState<Coordinate[]>(INITIAL_SNAKE);
-  const [food, setFood] = useState<Coordinate>({ x: 5, y: 5 });
-  // 'direction' state is primarily for UI updates if needed, logic relies on Ref
-  const [direction, setDirection] = useState<Direction>(INITIAL_DIRECTION);
-  const [status, setStatus] = useState<GameStatus>(GameStatus.IDLE);
-  const [score, setScore] = useState(0);
-  const [highScore, setHighScore] = useState(0);
-  
-  // Difficulty State
-  const [difficulty, setDifficulty] = useState<Difficulty>(Difficulty.MEDIUM);
-  const [speed, setSpeed] = useState(DIFFICULTY_CONFIG[Difficulty.MEDIUM].initialSpeed);
-  
   const [messages, setMessages] = useState<CommentaryMessage[]>([]);
+
+  // --- AI Integration ---
   
-  // Refs
-  // directionRef ensures the game loop always has the latest input without closure staleness
-  const directionRef = useRef(INITIAL_DIRECTION);
-
-  // --- Helpers ---
-
   const addMessage = useCallback((text: string, sender: 'ai' | 'system') => {
     setMessages(prev => [...prev, {
       id: Math.random().toString(36).substr(2, 9),
@@ -52,173 +22,21 @@ const App: React.FC = () => {
     }]);
   }, []);
 
-  const generateFood = useCallback((currentSnake: Coordinate[]): Coordinate => {
-    let newFood: Coordinate;
-    let isColliding;
-    do {
-      newFood = {
-        x: Math.floor(Math.random() * BOARD_SIZE),
-        y: Math.floor(Math.random() * BOARD_SIZE)
-      };
-      // eslint-disable-next-line no-loop-func
-      isColliding = currentSnake.some(seg => seg.x === newFood.x && seg.y === newFood.y);
-    } while (isColliding);
-    return newFood;
-  }, []);
-
-  const triggerAI = async (event: 'start' | 'eat' | 'die' | 'highscore', currentScore: number) => {
-    const comment = await generateGameCommentary(currentScore, event, highScore);
-    if (comment) {
-      addMessage(comment, 'ai');
+  const handleGameEvent = useCallback(async (event: GameEventType, score: number, highScore: number) => {
+    if (event === 'start') {
+      setMessages([]);
+      addMessage(`System: Game Started`, "system");
     }
-  };
-
-  // --- Input Handling (Refactored) ---
-
-  const handleDirectionInput = useCallback((targetDir: Direction) => {
-    const currentDir = directionRef.current;
     
-    // Prevent 180-degree turns
-    const isOpposite = 
-      (targetDir === Direction.UP && currentDir === Direction.DOWN) ||
-      (targetDir === Direction.DOWN && currentDir === Direction.UP) ||
-      (targetDir === Direction.LEFT && currentDir === Direction.RIGHT) ||
-      (targetDir === Direction.RIGHT && currentDir === Direction.LEFT);
+    // Call Gemini API
+    const comment = await generateGameCommentary(score, event, highScore);
+    if (comment) addMessage(comment, 'ai');
+  }, [addMessage]);
 
-    // Only update if valid and different (though same direction is harmless)
-    if (!isOpposite) {
-      setDirection(targetDir);
-      directionRef.current = targetDir;
-    }
-  }, []);
+  // --- Game Hook ---
 
-  // --- Calculations ---
-  
-  const speedProgress = useMemo(() => {
-    const start = DIFFICULTY_CONFIG[difficulty].initialSpeed;
-    const min = MIN_SPEED;
-    const range = start - min;
-    const current = start - speed;
-    const percent = (current / range) * 100;
-    return Math.min(100, Math.max(0, percent));
-  }, [speed, difficulty]);
-
-  // --- Game Loop Logic ---
-
-  const startGame = () => {
-    // Reset Game State
-    setSnake(INITIAL_SNAKE);
-    setDirection(INITIAL_DIRECTION);
-    directionRef.current = INITIAL_DIRECTION;
-    setScore(0);
-    setSpeed(DIFFICULTY_CONFIG[difficulty].initialSpeed);
-    setStatus(GameStatus.PLAYING);
-    setFood(generateFood(INITIAL_SNAKE));
-    setMessages([]); 
-    
-    addMessage(`System: Game Started (${difficulty} Mode)`, "system");
-    triggerAI('start', 0);
-  };
-
-  const pauseGame = () => {
-    if (status === GameStatus.PLAYING) setStatus(GameStatus.PAUSED);
-    else if (status === GameStatus.PAUSED) setStatus(GameStatus.PLAYING);
-  };
-
-  const gameOver = () => {
-    setStatus(GameStatus.GAME_OVER);
-    const isNewHigh = score > highScore;
-    if (isNewHigh) {
-      setHighScore(score);
-      localStorage.setItem('neonSnakeHighScore', score.toString());
-      triggerAI('highscore', score);
-    } else {
-      triggerAI('die', score);
-    }
-  };
-
-  const moveSnake = useCallback(() => {
-    if (status !== GameStatus.PLAYING) return;
-
-    setSnake(prevSnake => {
-      const head = prevSnake[0];
-      const newHead = { ...head };
-
-      // Move Head
-      switch (directionRef.current) {
-        case Direction.UP: newHead.y -= 1; break;
-        case Direction.DOWN: newHead.y += 1; break;
-        case Direction.LEFT: newHead.x -= 1; break;
-        case Direction.RIGHT: newHead.x += 1; break;
-      }
-
-      // Check Walls
-      if (
-        newHead.x < 0 || 
-        newHead.x >= BOARD_SIZE || 
-        newHead.y < 0 || 
-        newHead.y >= BOARD_SIZE
-      ) {
-        gameOver();
-        return prevSnake;
-      }
-
-      // Check Self Collision
-      if (prevSnake.some(seg => seg.x === newHead.x && seg.y === newHead.y)) {
-        gameOver();
-        return prevSnake;
-      }
-
-      const newSnake = [newHead, ...prevSnake];
-
-      // Check Food Collision
-      if (newHead.x === food.x && newHead.y === food.y) {
-        const newScore = score + 10;
-        setScore(newScore);
-        setFood(generateFood(newSnake));
-        
-        // Update Speed
-        const decrement = DIFFICULTY_CONFIG[difficulty].speedDecrement;
-        setSpeed(prev => Math.max(MIN_SPEED, prev - decrement));
-        
-        // AI Comment (throttled)
-        if (newScore % 50 === 0 && newScore > 0) {
-             triggerAI('eat', newScore);
-        }
-      } else {
-        newSnake.pop(); // Remove tail if no food eaten
-      }
-
-      return newSnake;
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, food, score, generateFood, highScore, difficulty]); 
-  // Dependency note: functions like gameOver/triggerAI are omitted to avoid cycles, 
-  // relying on `status` to control execution flow.
-
-  // --- Effects ---
-
-  // Game Loop
-  useInterval(moveSnake, status === GameStatus.PLAYING ? speed : null);
-
-  // Keyboard Controls
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const targetDir = KEY_MAP[e.key];
-      if (targetDir) {
-        handleDirectionInput(targetDir);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleDirectionInput]);
-
-  // Load High Score
-  useEffect(() => {
-    const saved = localStorage.getItem('neonSnakeHighScore');
-    if (saved) setHighScore(parseInt(saved, 10));
-  }, []);
+  const { state, actions } = useSnakeGame(handleGameEvent);
+  const { snake, food, status, score, highScore, difficulty, speedProgress } = state;
 
   return (
     <div className="min-h-screen bg-[#050508] text-white flex flex-col md:flex-row items-center justify-center p-4 gap-8">
@@ -273,11 +91,11 @@ const App: React.FC = () => {
         <Controls 
           status={status}
           difficulty={difficulty}
-          onStart={startGame}
-          onPause={pauseGame}
-          onRestart={startGame}
-          onDirectionChange={handleDirectionInput}
-          onDifficultyChange={setDifficulty}
+          onStart={actions.startGame}
+          onPause={actions.pauseGame}
+          onRestart={actions.restartGame}
+          onDirectionChange={actions.handleDirectionInput}
+          onDifficultyChange={actions.setDifficulty}
         />
       </div>
 

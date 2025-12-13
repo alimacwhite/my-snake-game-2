@@ -1,18 +1,24 @@
 import { GoogleGenAI } from "@google/genai";
 
-// Initialize Gemini AI
-const apiKey = process.env.API_KEY || ''; 
-// Note: In a real prod env, we'd handle missing keys gracefully, 
-// but for this demo, we assume the environment injects it.
+const TIMEOUT_MS = 5000;
+const MAX_RETRIES = 1;
 
-const ai = new GoogleGenAI({ apiKey });
+// Initialize Gemini AI
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+const FALLBACK_MESSAGES: Record<string, string> = {
+  start: "System initialized. Good luck!",
+  eat: "Tasty!",
+  die: "Mission Failed.",
+  highscore: "New Record Set!"
+};
 
 export const generateGameCommentary = async (
   score: number,
   event: 'start' | 'eat' | 'die' | 'highscore',
   previousHighScore: number
 ): Promise<string> => {
-  if (!apiKey) return "AI Offline (No API Key)";
+  if (!process.env.API_KEY) return "AI Offline (No API Key)";
 
   const modelId = 'gemini-2.5-flash';
 
@@ -22,8 +28,7 @@ export const generateGameCommentary = async (
       prompt = "The player just started a new game of Snake. Give a short, 5-word hype intro.";
       break;
     case 'eat':
-      // Only comment occasionally on eating to save tokens/latency in a real app, 
-      // but here we might call it. For safety, let's keep it generic.
+      // Only comment occasionally on eating to save tokens/latency in a real app
       prompt = `The player just ate food. Score is now ${score}. Give a 3-word encouraging remark.`;
       break;
     case 'die':
@@ -34,20 +39,41 @@ export const generateGameCommentary = async (
       break;
   }
 
-  try {
-    const response = await ai.models.generateContent({
-      model: modelId,
-      contents: prompt,
-      config: {
-        systemInstruction: "You are a witty, retro-arcade style commentator named 'NeonBit'. You are brief, energetic, and sometimes snarky.",
-        temperature: 0.8,
-        maxOutputTokens: 50,
+  let attempt = 0;
+  
+  while (attempt <= MAX_RETRIES) {
+    try {
+      // Create a timeout promise that rejects after TIMEOUT_MS
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error("Request timed out")), TIMEOUT_MS)
+      );
+
+      // Race the API call against the timeout
+      const response = await Promise.race([
+        ai.models.generateContent({
+          model: modelId,
+          contents: prompt,
+          config: {
+            systemInstruction: "You are a witty, retro-arcade style commentator named 'NeonBit'. You are brief, energetic, and sometimes snarky.",
+            temperature: 0.8,
+            maxOutputTokens: 50,
+          }
+        }),
+        timeoutPromise
+      ]);
+      
+      return response.text || "";
+    } catch (error) {
+      attempt++;
+      console.warn(`Gemini API attempt ${attempt} failed:`, error);
+      
+      if (attempt > MAX_RETRIES) {
+        // Return a safe fallback on final failure so the UI isn't silent
+        return FALLBACK_MESSAGES[event] || "";
       }
-    });
-    
-    return response.text || "...";
-  } catch (error) {
-    console.error("Gemini API Error:", error);
-    return "";
+      // Loop continues for retry
+    }
   }
+  
+  return "";
 };

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Coordinate, GameStatus } from '../types';
 import { BOARD_SIZE } from '../constants';
+import { areCoordsEqual } from '../utils/gameUtils';
 
 interface GameBoardProps {
   snake: Coordinate[];
@@ -8,7 +9,7 @@ interface GameBoardProps {
   status: GameStatus;
 }
 
-const GameBoard: React.FC<GameBoardProps> = ({ snake, food, status }) => {
+const GameBoard: React.FC<GameBoardProps> = React.memo(({ snake, food, status }) => {
   
   // Create grid cells
   const grid = useMemo(() => {
@@ -20,18 +21,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ snake, food, status }) => {
     }
     return cells;
   }, []);
-
-  const isSnakeBody = (x: number, y: number) => {
-    return snake.some(segment => segment.x === x && segment.y === y);
-  };
-
-  const isSnakeHead = (x: number, y: number) => {
-    return snake[0]?.x === x && snake[0]?.y === y;
-  };
-
-  const isFood = (x: number, y: number) => {
-    return food.x === x && food.y === y;
-  };
 
   return (
     <div className="relative p-1 bg-neon-grid rounded-xl border-4 border-neon-blue shadow-[0_0_20px_rgba(0,243,255,0.3)]">
@@ -69,9 +58,10 @@ const GameBoard: React.FC<GameBoardProps> = ({ snake, food, status }) => {
         }}
       >
         {grid.map((cell) => {
-          const isHead = isSnakeHead(cell.x, cell.y);
-          const isBody = isSnakeBody(cell.x, cell.y);
-          const isFoodCell = isFood(cell.x, cell.y);
+          // Optimized checks using helper
+          const isHead = snake.length > 0 && areCoordsEqual(snake[0], cell);
+          const isBody = snake.some(segment => areCoordsEqual(segment, cell));
+          const isFoodCell = areCoordsEqual(food, cell);
 
           let cellClass = "w-full h-full bg-black/40 transition-colors duration-75";
 
@@ -93,6 +83,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ snake, food, status }) => {
       </div>
     </div>
   );
-};
+});
 
 export default GameBoard;
