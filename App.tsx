@@ -25,6 +25,7 @@ const App: React.FC = () => {
   // --- State ---
   const [snake, setSnake] = useState<Coordinate[]>(INITIAL_SNAKE);
   const [food, setFood] = useState<Coordinate>({ x: 5, y: 5 });
+  // 'direction' state is primarily for UI updates if needed, logic relies on Ref
   const [direction, setDirection] = useState<Direction>(INITIAL_DIRECTION);
   const [status, setStatus] = useState<GameStatus>(GameStatus.IDLE);
   const [score, setScore] = useState(0);
@@ -37,6 +38,7 @@ const App: React.FC = () => {
   const [messages, setMessages] = useState<CommentaryMessage[]>([]);
   
   // Refs
+  // directionRef ensures the game loop always has the latest input without closure staleness
   const directionRef = useRef(INITIAL_DIRECTION);
 
   // --- Helpers ---
@@ -71,34 +73,49 @@ const App: React.FC = () => {
     }
   };
 
+  // --- Input Handling (Refactored) ---
+
+  const handleDirectionInput = useCallback((targetDir: Direction) => {
+    const currentDir = directionRef.current;
+    
+    // Prevent 180-degree turns
+    const isOpposite = 
+      (targetDir === Direction.UP && currentDir === Direction.DOWN) ||
+      (targetDir === Direction.DOWN && currentDir === Direction.UP) ||
+      (targetDir === Direction.LEFT && currentDir === Direction.RIGHT) ||
+      (targetDir === Direction.RIGHT && currentDir === Direction.LEFT);
+
+    // Only update if valid and different (though same direction is harmless)
+    if (!isOpposite) {
+      setDirection(targetDir);
+      directionRef.current = targetDir;
+    }
+  }, []);
+
   // --- Calculations ---
   
   const speedProgress = useMemo(() => {
     const start = DIFFICULTY_CONFIG[difficulty].initialSpeed;
     const min = MIN_SPEED;
-    
-    // Calculate percentage: 0% at start speed, 100% at min speed
     const range = start - min;
     const current = start - speed;
     const percent = (current / range) * 100;
-    
     return Math.min(100, Math.max(0, percent));
   }, [speed, difficulty]);
 
   // --- Game Loop Logic ---
 
   const startGame = () => {
+    // Reset Game State
     setSnake(INITIAL_SNAKE);
     setDirection(INITIAL_DIRECTION);
     directionRef.current = INITIAL_DIRECTION;
     setScore(0);
-    
-    // Set speed based on selected difficulty
     setSpeed(DIFFICULTY_CONFIG[difficulty].initialSpeed);
-    
     setStatus(GameStatus.PLAYING);
     setFood(generateFood(INITIAL_SNAKE));
     setMessages([]); 
+    
     addMessage(`System: Game Started (${difficulty} Mode)`, "system");
     triggerAI('start', 0);
   };
@@ -127,6 +144,7 @@ const App: React.FC = () => {
       const head = prevSnake[0];
       const newHead = { ...head };
 
+      // Move Head
       switch (directionRef.current) {
         case Direction.UP: newHead.y -= 1; break;
         case Direction.DOWN: newHead.y += 1; break;
@@ -153,28 +171,30 @@ const App: React.FC = () => {
 
       const newSnake = [newHead, ...prevSnake];
 
-      // Check Food
+      // Check Food Collision
       if (newHead.x === food.x && newHead.y === food.y) {
         const newScore = score + 10;
         setScore(newScore);
         setFood(generateFood(newSnake));
         
-        // Update Speed based on difficulty decrement
+        // Update Speed
         const decrement = DIFFICULTY_CONFIG[difficulty].speedDecrement;
         setSpeed(prev => Math.max(MIN_SPEED, prev - decrement));
         
-        // AI Comment
+        // AI Comment (throttled)
         if (newScore % 50 === 0 && newScore > 0) {
              triggerAI('eat', newScore);
         }
       } else {
-        newSnake.pop(); // Remove tail
+        newSnake.pop(); // Remove tail if no food eaten
       }
 
       return newSnake;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, food, score, generateFood, highScore, difficulty]); 
+  // Dependency note: functions like gameOver/triggerAI are omitted to avoid cycles, 
+  // relying on `status` to control execution flow.
 
   // --- Effects ---
 
@@ -185,46 +205,20 @@ const App: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const targetDir = KEY_MAP[e.key];
-      if (!targetDir) return;
-
-      const currentDir = directionRef.current;
-      
-      const isOpposite = 
-        (targetDir === Direction.UP && currentDir === Direction.DOWN) ||
-        (targetDir === Direction.DOWN && currentDir === Direction.UP) ||
-        (targetDir === Direction.LEFT && currentDir === Direction.RIGHT) ||
-        (targetDir === Direction.RIGHT && currentDir === Direction.LEFT);
-
-      if (!isOpposite) {
-        setDirection(targetDir);
-        directionRef.current = targetDir;
+      if (targetDir) {
+        handleDirectionInput(targetDir);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [handleDirectionInput]);
 
   // Load High Score
   useEffect(() => {
     const saved = localStorage.getItem('neonSnakeHighScore');
     if (saved) setHighScore(parseInt(saved, 10));
   }, []);
-
-  // --- Handlers ---
-  const handleDirectionChange = (newDir: Direction) => {
-      const currentDir = directionRef.current;
-      const isOpposite = 
-        (newDir === Direction.UP && currentDir === Direction.DOWN) ||
-        (newDir === Direction.DOWN && currentDir === Direction.UP) ||
-        (newDir === Direction.LEFT && currentDir === Direction.RIGHT) ||
-        (newDir === Direction.RIGHT && currentDir === Direction.LEFT);
-      
-      if (!isOpposite) {
-        setDirection(newDir);
-        directionRef.current = newDir;
-      }
-  };
 
   return (
     <div className="min-h-screen bg-[#050508] text-white flex flex-col md:flex-row items-center justify-center p-4 gap-8">
@@ -265,7 +259,7 @@ const App: React.FC = () => {
              <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden border border-gray-700/50">
                 <div 
                   className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 shadow-[0_0_10px_currentColor]"
-                  style={{ width: `${Math.max(5, speedProgress)}%` }} // Min 5% so it's visible
+                  style={{ width: `${Math.max(5, speedProgress)}%` }}
                 />
              </div>
              
@@ -282,7 +276,7 @@ const App: React.FC = () => {
           onStart={startGame}
           onPause={pauseGame}
           onRestart={startGame}
-          onDirectionChange={handleDirectionChange}
+          onDirectionChange={handleDirectionInput}
           onDifficultyChange={setDifficulty}
         />
       </div>

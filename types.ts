@@ -23,16 +23,6 @@ export interface Coordinate {
   y: number;
 }
 
-export interface GameState {
-  snake: Coordinate[];
-  food: Coordinate;
-  direction: Direction;
-  score: number;
-  highScore: number;
-  status: GameStatus;
-  speed: number;
-}
-
 export interface CommentaryMessage {
   id: string;
   text: string;
