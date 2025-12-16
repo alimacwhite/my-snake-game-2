@@ -1,6 +1,6 @@
 import React from 'react';
 import { GameStatus, Direction, Difficulty } from '../types';
-import { Play, RotateCcw, Pause, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Play, RotateCcw, Pause } from 'lucide-react';
 import { DIFFICULTY_CONFIG } from '../constants';
 
 interface ControlsProps {
@@ -12,8 +12,6 @@ interface ControlsProps {
   onDirectionChange: (dir: Direction) => void;
   onDifficultyChange: (diff: Difficulty) => void;
 }
-
-const BUTTON_BASE_CLASS = "p-4 rounded-full bg-gray-800 border border-gray-600 active:bg-neon-blue active:border-neon-blue active:text-black transition-all duration-150 shadow-lg touch-manipulation";
 
 const Controls: React.FC<ControlsProps> = ({ 
   status, 
@@ -73,29 +71,11 @@ const Controls: React.FC<ControlsProps> = ({
         )}
       </div>
 
-      {/* D-Pad for Mobile */}
-      <div className="grid grid-cols-3 gap-2 md:hidden">
-        <div />
-        <button className={BUTTON_BASE_CLASS} onClick={() => onDirectionChange(Direction.UP)} aria-label="Up">
-          <ArrowUp size={24} />
-        </button>
-        <div />
-        
-        <button className={BUTTON_BASE_CLASS} onClick={() => onDirectionChange(Direction.LEFT)} aria-label="Left">
-          <ArrowLeft size={24} />
-        </button>
-        <div className="w-12 h-12 rounded-full bg-gray-900/50 flex items-center justify-center">
-          <div className="w-2 h-2 bg-gray-600 rounded-full" />
-        </div>
-        <button className={BUTTON_BASE_CLASS} onClick={() => onDirectionChange(Direction.RIGHT)} aria-label="Right">
-          <ArrowRight size={24} />
-        </button>
-
-        <div />
-        <button className={BUTTON_BASE_CLASS} onClick={() => onDirectionChange(Direction.DOWN)} aria-label="Down">
-          <ArrowDown size={24} />
-        </button>
-        <div />
+      {/* Mobile Swipe Instruction */}
+      <div className="md:hidden text-center animate-pulse">
+        <span className="text-xs text-gray-500 font-mono tracking-widest">
+           SWIPE TO MOVE
+        </span>
       </div>
 
       <div className="text-xs text-gray-500 hidden md:block font-mono">

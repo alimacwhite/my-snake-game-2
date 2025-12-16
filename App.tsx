@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { GameEventType, CommentaryMessage } from './types';
+import React, { useState, useCallback, useRef } from 'react';
+import { GameEventType, CommentaryMessage, Direction } from './types';
 import { DIFFICULTY_CONFIG } from './constants';
 import GameBoard from './components/GameBoard';
 import Controls from './components/Controls';
@@ -37,6 +37,42 @@ const App: React.FC = () => {
 
   const { state, actions } = useSnakeGame(handleGameEvent);
   const { snake, food, status, score, highScore, difficulty, speedProgress } = state;
+
+  // --- Touch / Swipe Handling ---
+  const touchStartRef = useRef<{x: number, y: number} | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY
+    };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+
+    const touchEnd = {
+      x: e.changedTouches[0].clientX,
+      y: e.changedTouches[0].clientY
+    };
+
+    const deltaX = touchEnd.x - touchStartRef.current.x;
+    const deltaY = touchEnd.y - touchStartRef.current.y;
+    
+    const minSwipeDistance = 30; // Threshold to avoid accidental taps
+
+    if (Math.abs(deltaX) > minSwipeDistance || Math.abs(deltaY) > minSwipeDistance) {
+       if (Math.abs(deltaX) > Math.abs(deltaY)) {
+         // Horizontal
+         actions.handleDirectionInput(deltaX > 0 ? Direction.RIGHT : Direction.LEFT);
+       } else {
+         // Vertical
+         actions.handleDirectionInput(deltaY > 0 ? Direction.DOWN : Direction.UP);
+       }
+    }
+
+    touchStartRef.current = null;
+  };
 
   return (
     <div className="min-h-screen bg-[#050508] text-white flex flex-col md:flex-row items-center justify-center p-4 gap-8">
@@ -86,7 +122,14 @@ const App: React.FC = () => {
              </div>
         </div>
 
-        <GameBoard snake={snake} food={food} status={status} />
+        {/* Game Board Wrapper with Swipe Handlers */}
+        <div 
+          className="touch-none outline-none"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
+          <GameBoard snake={snake} food={food} status={status} />
+        </div>
 
         <Controls 
           status={status}
